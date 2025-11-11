@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Bixah – QR Shock Demo (Consent-based)</title>
+<link rel="icon" href="./assets/favicon.svg">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#111722; --accent:#e53935; --ok:#2e7d32; --text:#e6eef7;
+    --muted:#b7c2d0; --line:#1f2a3a; --chip:#132035;
+  }
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
+  .wrap{display:flex;min-height:100%;align-items:center;justify-content:center;padding:24px}
+  .card{max-width:1040px;width:100%;background:var(--panel);border-radius:14px;
+    box-shadow:0 10px 40px rgba(0,0,0,.45);padding:28px;border:1px solid var(--line)}
+  h1{margin:0 0 10px 0;font-size:28px;letter-spacing:.2px}
+  h2{margin:16px 0 8px 0;font-size:18px}
+  p{line-height:1.55;margin:10px 0}
+  .muted{color:var(--muted)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+  .box{background:#0f1420;border:1px solid var(--line);border-radius:10px;padding:14px}
+  .k{opacity:.75;font-size:12px;letter-spacing:.4px}
+  .v{font-weight:650;margin-top:6px;word-break:break-word}
+  .cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+  .btn{appearance:none;border:none;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer}
+  .primary{background:var(--ok);color:white}
+  .ghost{background:transparent;border:1px solid #2a3648;color:#cfe3ff}
+  .danger{background:var(--accent);color:white}
+  .tag{display:inline-block;background:var(--chip);border:1px solid #294266;color:#bcd7ff;
+    padding:4px 8px;border-radius:999px;font-size:12px;margin-left:8px}
+  .note{font-size:12px;opacity:.85;margin-top:10px}
+  .list{margin:8px 0 0 18px}
+  .list li{margin:6px 0}
+  .warn{border-left:3px solid var(--accent);padding-left:12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .media{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}
+  video{width:100%;background:black;border-radius:10px;border:1px solid #1f2937}
+  .hud{position:relative}
+  .frame{position:absolute;inset:12px;border:2px dashed rgba(255,0,0,.6);border-radius:12px;pointer-events:none}
+  .coords{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+  @media (max-width:980px){.grid3{grid-template-columns:1fr 1fr} .media{grid-template-columns:1fr}}
+  @media (max-width:720px){.grid{grid-template-columns:1fr} .grid3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+  <div id="modal" style="position:fixed;inset:0;background:rgba(7,10,14,.78);display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div class="card" style="max-width:760px">
+      <h2 style="margin-top:0">We’ve got you — safely.</h2>
+      <p class="muted" style="margin-top:0">
+        If this QR were malicious, the page you opened could already be <span style="color:#ffb3b3">profiling you</span>,
+        nudging you to tap “updates”, or <span style="color:#ffb3b3">faking a login</span>. This demo shows how little it takes —
+        <strong>without storing anything</strong> and only with your explicit consent for sensitive sensors (camera / location).
+      </p>
+      <div class="warn">
+        <strong>Common scam playbook:</strong>
+        <ul class="list">
+          <li>“Security alert / package failed / bank update” urgency.</li>
+          <li>Perfect brand colors & logos (copied in seconds).</li>
+          <li>One tap → fake login or unsafe app install.</li>
+        </ul>
+      </div>
+      <div class="cta">
+        <button class="btn danger" onclick="closeIntro()">Show me</button>
+      </div>
+      <div class="note">No network calls. No storage. Everything runs on your device.</div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <h1>QR scams are easy. <span class="tag" id="modeTag">Shock mode</span></h1>
+      <p class="muted">Below is what a plain web page can know instantly — plus what many people consent to without reading.</p>
+
+      <h2>Instant fingerprint (no permission needed)</h2>
+      <div class="grid" id="facts"></div>
+
+      <h2>Deeper signals (unique “signature” hints)</h2>
+      <div class="grid3" id="deep"></div>
+
+      <h2>Environment & behavior</h2>
+      <div class="grid" id="env"></div>
+
+      <h2>Live: behavior currently observable</h2>
+      <div class="grid">
+        <div class="box">
+          <div class="k">Mouse movement / idle</div>
+          <div class="v"><span id="mouseCount">0</span> moves • <span id="idle">0</span>s idle</div>
+          <div class="note">Timing/paths can fingerprint users — we’re just counting.</div>
+        </div>
+        <div class="box">
+          <div class="k">Keystrokes on this page</div>
+          <div class="v"><span id="keyCount">0</span> keys (<span id="lastKey">none</span>)</div>
+          <div class="note">Key timing alone can be unique. We do <em>not</em> store text.</div>
+        </div>
+      </div>
+
+      <h2>Optional (with your consent): camera + location</h2>
+      <div class="two">
+        <div class="box media">
+          <div class="hud">
+            <video id="cam" playsinline muted></video>
+            <div class="frame" title="Face frame overlay"></div>
+          </div>
+          <div>
+            <div class="k">Cameras / microphones (names visible after permission)</div>
+            <div class="v" id="devices">—</div>
+            <div class="cta" style="margin-top:12px">
+              <button class="btn ghost" onclick="startCamera()">Allow camera</button>
+              <button class="btn ghost" onclick="stopCamera()">Stop camera</button>
+            </div>
+            <div class="note">Granting camera shows how persuasive a page can look when it sees you.</div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="k">Geolocation (user consent)</div>
+          <div class="v coords" id="geo">—</div>
+          <div class="cta" style="margin-top:12px">
+            <button class="btn ghost" onclick="getLocation()">Share location</button>
+          </div>
+          <div class="note">We’ll show coordinates & accuracy if you consent. Not stored.</div>
+        </div>
+      </div>
+
+      <h2>What a malicious page might attempt (we will <u>not</u>)</h2>
+      <div class="box">
+        <ul class="list">
+          <li><strong>Brand-impersonation:</strong> copy your bank’s look, then fish credentials.</li>
+          <li><strong>Drive-by prompts:</strong> “update” popups to install unsafe apps or profiles.</li>
+          <li><strong>Push abuse:</strong> once allowed, push endless “bank alerts”.</li>
+          <li><strong>Session riding:</strong> click-jacking while a real session is open.</li>
+        </ul>
+        <p class="note">This is an educational demo — no storage, no uploads, no network calls.</p>
+      </div>
+
+      <div class="cta">
+        <a class="btn primary" href="https://bixah.com/protect" target="_blank" rel="noopener">How Bixah protects you</a>
+        <button class="btn ghost" onclick="location.reload()">Replay</button>
+      </div>
+      <p class="note">Tip: Don’t auto-trust QR codes. Verify the URL, avoid “urgent” prompts, and use Bixah for instant link ratings.</p>
+    </div>
+  </div>
+
+<script>
+  function closeIntro(){ document.getElementById('modal').style.display = 'none'; }
+  const params = new URLSearchParams(location.search);
+  const mode = (params.get('mode') || 'shock').toLowerCase();
+  document.getElementById('modeTag').textContent = mode === 'safe' ? 'Safe mode' : 'Shock mode';
+
+  let mouseMoves=0, lastMove=Date.now(), idleSec=0, keyCount=0, lastKey='none';
+  document.addEventListener('mousemove', ()=>{ mouseMoves++; lastMove=Date.now(); });
+  document.addEventListener('keydown', (e)=>{ keyCount++; lastKey=e.key; });
+  setInterval(()=>{
+    idleSec = Math.max(0, Math.round((Date.now()-lastMove)/1000));
+    byId('mouseCount').textContent = mouseMoves;
+    byId('idle').textContent = idleSec;
+    byId('keyCount').textContent = keyCount;
+    byId('lastKey').textContent = lastKey;
+  }, 250);
+
+  function renderFacts(){
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown';
+    const mem = navigator.deviceMemory ? navigator.deviceMemory + ' GB (approx)' : '—';
+    const cores = navigator.hardwareConcurrency || '—';
+    const touch = navigator.maxTouchPoints || 0;
+    const lang = navigator.languages ? navigator.languages.join(', ') : (navigator.language || '—');
+    const colorDepth = screen.colorDepth ? screen.colorDepth + '-bit' : '—';
+    const vendor = navigator.vendor || '—';
+    const plat = navigator.platform || '—';
+    const ua = navigator.userAgent || '—';
+    const ref = document.referrer || '—';
+    const cookies = navigator.cookieEnabled ? 'Yes' : 'No';
+
+    addKV('facts','User agent', ua);
+    addKV('facts','Platform / Vendor', `${plat} / ${vendor}`);
+    addKV('facts','Languages', lang);
+    addKV('facts','Time zone', tz);
+    addKV('facts','Screen', `${screen.width} × ${screen.height} @ ${colorDepth}`);
+    addKV('facts','CPU cores (hint)', cores);
+    addKV('facts','Device memory (hint)', mem);
+    addKV('facts','Touch support', `${touch} points`);
+    addKV('facts','Cookies enabled', cookies);
+    addKV('facts','Referrer', ref);
+  }
+
+  async function renderDeep(){
+    const gl = getWebGLInfo();
+    addKV('deep','WebGL vendor', gl.vendor || '—');
+    addKV('deep','WebGL renderer', gl.renderer || '—');
+    addKV('deep','WebGL extensions', (gl.extensions||[]).length ? gl.extensions.length+' supported' : '—');
+    const canvasHash = await canvasFingerprint();
+    addKV('deep','Canvas fingerprint (hash)', canvasHash);
+    const audioHash = await audioFingerprint();
+    addKV('deep','Audio fingerprint (hash)', audioHash);
+    const fonts = detectFonts();
+    addKV('deep','Likely fonts present', fonts.join(', ') || '—');
+  }
+
+  function renderEnv(){
+    const online = navigator.onLine ? 'Online' : 'Offline';
+    const prefersDark = match('(prefers-color-scheme: dark)') ? 'Dark' : 'Light';
+    const reducedMotion = match('(prefers-reduced-motion: reduce)') ? 'Yes' : 'No';
+    const widthClass = screen.width >= 1200 ? 'Desktop-ish' : screen.width >= 768 ? 'Tablet-ish' : 'Phone-ish';
+    const historyLen = (history && typeof history.length==='number') ? history.length : '—';
+    const navType = navTypeStr();
+    addKV('env','Connection state', online);
+    addKV('env','Theme preference', prefersDark);
+    addKV('env','Reduced motion', reducedMotion);
+    addKV('env','Viewport class', widthClass);
+    addKV('env','History length', historyLen);
+    addKV('env','Navigation type', navType);
+  }
+
+  function match(q){ try { return window.matchMedia && window.matchMedia(q).matches; } catch(e){ return false; } }
+  function navTypeStr(){
+    try { const n=performance.getEntriesByType('navigation'); if(n&&n.length) return n[0].type; } catch(e){}
+    return '—';
+  }
+
+  let stream=null;
+  async function startCamera(){
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+      const v = byId('cam'); v.srcObject = stream; await v.play();
+      listDevices();
+    }catch(e){ alert('Camera denied or unavailable.'); }
+  }
+  function stopCamera(){
+    const v = byId('cam');
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    v.pause(); v.srcObject=null;
+  }
+  async function listDevices(){
+    try{
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      const list = devs.map(d=>`${d.kind}: ${d.label||'(label hidden)'} (${d.deviceId.slice(0,8)}…)`).join('<br>');
+      byId('devices').innerHTML = list || '—';
+    }catch(e){ byId('devices').textContent='—'; }
+  }
+  function getLocation(){
+    if(!navigator.geolocation){ byId('geo').textContent='Geolocation not supported'; return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos)=>{
+        const { latitude, longitude, accuracy } = pos.coords;
+        byId('geo').innerHTML = `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}<br>Accuracy: ±${Math.round(accuracy)} m`;
+      },
+      (err)=>{ byId('geo').textContent = 'Denied or unavailable.'; },
+      { enableHighAccuracy:true, timeout:8000, maximumAge:0 }
+    );
+  }
+  async function canvasFingerprint(){
+    try{
+      const c = document.createElement('canvas'); c.width=400; c.height=80;
+      const ctx = c.getContext('2d');
+      ctx.textBaseline='top'; ctx.font='16px \"Arial\"';
+      ctx.fillStyle='#f60'; ctx.fillRect(125,1,62,20);
+      ctx.fillStyle='#069'; ctx.fillText('Bixah canvas fp 😈', 2, 15);
+      ctx.strokeStyle='rgba(120, 10, 10, 0.7)'; ctx.strokeRect(120, 10, 150, 30);
+      const data = c.toDataURL();
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
+      return hex(buf);
+    }catch(e){ return '—'; }
+  }
+  async function audioFingerprint(){
+    try{
+      const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if(!Ctx) return '—';
+      const ctx = new Ctx(1, 44100, 44100);
+      const osc = ctx.createOscillator(); osc.type='triangle'; osc.frequency.value=1000;
+      const comp = ctx.createDynamicsCompressor();
+      osc.connect(comp); comp.connect(ctx.destination); osc.start(0);
+      const buf = await ctx.startRendering();
+      const chan = buf.getChannelData(0).slice(0, 5000);
+      const str = Array.from(chan).map(x=>Math.round(x*1000)/1000).join(',');
+      const dig = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return hex(dig);
+    }catch(e){ return '—'; }
+  }
+  function detectFonts(){
+    const base = 'monospace,serif,sans-serif';
+    const tests = ['Arial','Times New Roman','Courier New','Tahoma','Verdana','Roboto','Noto Naskh Arabic','Segoe UI'];
+    const s = document.createElement('span');
+    s.style.cssText='position:absolute;left:-9999px;font-size:72px;';
+    s.textContent='mmmmmmmmmmlli';
+    document.body.appendChild(s);
+    function widthFor(f){ s.style.fontFamily=`\"${f}\",`+base; return s.getBoundingClientRect().width; }
+    const ref = widthFor('nonexistent_font_xyz');
+    const found = tests.filter(f=>Math.abs(widthFor(f)-ref)>0.1);
+    document.body.removeChild(s);
+    return found;
+  }
+  function getWebGLInfo(){
+    try{
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if(!gl) return {};
+      const exts = gl.getSupportedExtensions()||[];
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      return dbg ? {
+        vendor: gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL),
+        renderer: gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL),
+        extensions: exts
+      } : { extensions: exts, renderer:'WebGL enabled (details masked)' };
+    }catch(e){ return {}; }
+  }
+  function addKV(containerId,k,v){
+    const div = document.createElement('div'); div.className='box';
+    div.innerHTML = `<div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div>`;
+    byId(containerId).appendChild(div);
+  }
+  function byId(id){ return document.getElementById(id); }
+  function escapeHtml(x){ return String(x).replace(/[&<>"']/g,s=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[s])); }
+  function hex(buf){ return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join(''); }
+
+  window.addEventListener('load', ()=>{
+    renderFacts(); renderDeep(); renderEnv();
+    if(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices){ listDevices(); }
+  });
+</script>
+</body>
+</html>
